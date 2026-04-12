@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactElement,
+} from "react";
 import {
   fetchDashboard,
   type ActivityRow,
@@ -29,6 +35,98 @@ function statusClass(status: string): string {
   if (s.includes("wrong") || s.includes("error") || s.includes("limit"))
     return "status-bad";
   return "status-warn";
+}
+
+type PieSlice = {
+  key: string;
+  label: string;
+  count: number;
+  pct: number;
+  className: string;
+};
+
+function DifficultyPie({ sum, slices }: { sum: number; slices: PieSlice[] }) {
+  const cx = 50;
+  const cy = 50;
+  const r = 38;
+
+  if (sum === 0) {
+    return (
+      <div className="pie-wrap">
+        <svg
+          viewBox="0 0 100 100"
+          className="pie-svg"
+          role="img"
+          aria-label="No solved problems by difficulty yet"
+        >
+          <circle cx={cx} cy={cy} r={r} className="pie-empty" />
+        </svg>
+        <ul className="pie-legend">
+          {slices.map((s) => (
+            <li key={s.key}>
+              <span
+                className={`pie-dot pie-dot-${s.key}`}
+                aria-hidden
+              />
+              <span className="pie-legend-label">{s.label}</span>
+              <span className="pie-legend-stats">
+                <strong>{s.count}</strong>
+                <span className="pie-pct"> —</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  let angle = -Math.PI / 2;
+  const paths: ReactElement[] = [];
+  for (const s of slices) {
+    const sliceAngle = (s.count / sum) * 2 * Math.PI;
+    if (sliceAngle <= 0) continue;
+    const x1 = cx + r * Math.cos(angle);
+    const y1 = cy + r * Math.sin(angle);
+    angle += sliceAngle;
+    const x2 = cx + r * Math.cos(angle);
+    const y2 = cy + r * Math.sin(angle);
+    const largeArc = sliceAngle > Math.PI ? 1 : 0;
+    const d = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+    paths.push(<path key={s.key} d={d} className={s.className} />);
+  }
+
+  const ariaLabel = slices
+    .filter((s) => s.count > 0)
+    .map((s) => `${s.label} ${s.pct.toFixed(1)} percent`)
+    .join(", ");
+
+  return (
+    <div className="pie-wrap">
+      <svg
+        viewBox="0 0 100 100"
+        className="pie-svg"
+        role="img"
+        aria-label={`Difficulty split: ${ariaLabel}`}
+      >
+        {paths}
+      </svg>
+      <ul className="pie-legend">
+        {slices.map((s) => (
+          <li key={s.key}>
+            <span className={`pie-dot pie-dot-${s.key}`} aria-hidden />
+            <span className="pie-legend-label">{s.label}</span>
+            <span className="pie-legend-stats">
+              <strong>{s.count}</strong>
+              <span className="pie-pct">
+                {" "}
+                ({s.pct.toFixed(1)}%)
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 export function App() {
@@ -88,16 +186,22 @@ export function App() {
     if (activeUser) void load(activeUser, true);
   };
 
-  const barWidths = useMemo(() => {
+  const pieSegments = useMemo(() => {
     if (!data) return null;
     const { easy, medium, hard } = data.stats;
     const sum = easy + medium + hard;
-    if (sum === 0) return { easy: 0, medium: 0, hard: 33.34 };
-    return {
-      easy: (easy / sum) * 100,
-      medium: (medium / sum) * 100,
-      hard: (hard / sum) * 100,
-    };
+    const slices: PieSlice[] = [
+      { key: "easy", label: "Easy", count: easy, pct: 0, className: "pie-fill-easy" },
+      { key: "medium", label: "Medium", count: medium, pct: 0, className: "pie-fill-medium" },
+      { key: "hard", label: "Hard", count: hard, pct: 0, className: "pie-fill-hard" },
+    ];
+    if (sum === 0) {
+      return { sum: 0, slices };
+    }
+    for (const s of slices) {
+      s.pct = (s.count / sum) * 100;
+    }
+    return { sum, slices };
   }, [data]);
 
   return (
@@ -160,43 +264,13 @@ export function App() {
               <p className="streak-value">
                 {data.streak} <span className="streak-unit">day{data.streak === 1 ? "" : "s"}</span>
               </p>
-              <p className="card-hint">
-                UTC days with at least one submission. Uses your recent submission feeds (about
-                20 entries each) and, when LeetCode exposes a daily activity calendar, that too.
-              </p>
             </article>
 
             <article className="card card-breakdown">
               <h2 className="card-label">By difficulty</h2>
-              {barWidths && (
-                <div className="dist-bar" aria-hidden>
-                  <span
-                    className="dist-seg dist-easy"
-                    style={{ width: `${barWidths.easy}%` }}
-                  />
-                  <span
-                    className="dist-seg dist-medium"
-                    style={{ width: `${barWidths.medium}%` }}
-                  />
-                  <span
-                    className="dist-seg dist-hard"
-                    style={{ width: `${barWidths.hard}%` }}
-                  />
-                </div>
+              {pieSegments && (
+                <DifficultyPie sum={pieSegments.sum} slices={pieSegments.slices} />
               )}
-              <ul className="dist-legend">
-                <li>
-                  <span className="dot easy" /> Easy{" "}
-                  <strong>{data.stats.easy}</strong>
-                </li>
-                <li>
-                  <span className="dot medium" /> Medium{" "}
-                  <strong>{data.stats.medium}</strong>
-                </li>
-                <li>
-                  <span className="dot hard" /> Hard <strong>{data.stats.hard}</strong>
-                </li>
-              </ul>
             </article>
           </section>
 
