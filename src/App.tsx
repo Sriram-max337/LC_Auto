@@ -215,7 +215,7 @@ export function App() {
       )}
 
       <footer className="footer">
-        Data from LeetCode GraphQL · dev server proxies <code>/graphql</code> to avoid CORS
+        Data from LeetCode GraphQL via <code>/api/graphql</code> (server-side proxy)
       </footer>
     </div>
   );

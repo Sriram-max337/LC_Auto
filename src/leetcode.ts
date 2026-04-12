@@ -1,4 +1,4 @@
-const GRAPHQL_PATH = "/graphql";
+const GRAPHQL_PATH = "/api/graphql";
 
 type GqlError = { message: string };
 
