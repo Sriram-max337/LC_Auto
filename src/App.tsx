@@ -96,6 +96,13 @@ function DifficultyPie({
   const cx = 50;
   const cy = 50;
   const r = 38;
+  const [animate, setAnimate] = useState(false);
+
+  useEffect(() => {
+    setAnimate(false);
+    const raf = requestAnimationFrame(() => setAnimate(true));
+    return () => cancelAnimationFrame(raf);
+  }, [triggerKey]);
 
   if (sum === 0) {
     return (
@@ -151,7 +158,7 @@ function DifficultyPie({
     <div className="pie-wrap">
       <svg
         viewBox="0 0 100 100"
-        className="pie-svg pie-anim"
+        className={`pie-svg ${animate ? "pie-anim" : ""}`}
         role="img"
         aria-label={`Difficulty split: ${ariaLabel}`}
       >
