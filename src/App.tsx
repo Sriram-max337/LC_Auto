@@ -45,7 +45,54 @@ type PieSlice = {
   className: string;
 };
 
-function DifficultyPie({ sum, slices }: { sum: number; slices: PieSlice[] }) {
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+function useAnimatedNumber(value: number, triggerKey: number, durationMs = 650): number {
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    let raf = 0;
+    const start = performance.now();
+    setDisplay(0);
+
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / durationMs);
+      const eased = easeOutCubic(t);
+      setDisplay(Math.round(eased * value));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value, triggerKey, durationMs]);
+
+  return display;
+}
+
+function AnimatedNumber({
+  value,
+  triggerKey,
+  durationMs,
+}: {
+  value: number;
+  triggerKey: number;
+  durationMs?: number;
+}) {
+  const n = useAnimatedNumber(value, triggerKey, durationMs);
+  return <>{n}</>;
+}
+
+function DifficultyPie({
+  sum,
+  slices,
+  triggerKey,
+}: {
+  sum: number;
+  slices: PieSlice[];
+  triggerKey: number;
+}) {
   const cx = 50;
   const cy = 50;
   const r = 38;
@@ -104,7 +151,7 @@ function DifficultyPie({ sum, slices }: { sum: number; slices: PieSlice[] }) {
     <div className="pie-wrap">
       <svg
         viewBox="0 0 100 100"
-        className="pie-svg"
+        className="pie-svg pie-anim"
         role="img"
         aria-label={`Difficulty split: ${ariaLabel}`}
       >
@@ -116,7 +163,9 @@ function DifficultyPie({ sum, slices }: { sum: number; slices: PieSlice[] }) {
             <span className={`pie-dot pie-dot-${s.key}`} aria-hidden />
             <span className="pie-legend-label">{s.label}</span>
             <span className="pie-legend-stats">
-              <strong>{s.count}</strong>
+              <strong>
+                <AnimatedNumber value={s.count} triggerKey={triggerKey} />
+              </strong>
               <span className="pie-pct">
                 {" "}
                 ({s.pct.toFixed(1)}%)
@@ -147,6 +196,8 @@ export function App() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fetchSeq, setFetchSeq] = useState(0);
+  const [animSeq, setAnimSeq] = useState(0);
 
   const load = useCallback(async (username: string, soft?: boolean) => {
     const u = username.trim();
@@ -156,10 +207,12 @@ export function App() {
     }
     setLoading(true);
     setError(null);
+    setFetchSeq((s) => s + 1);
     if (!soft) setData(null);
     try {
       const d = await fetchDashboard(u);
       setData(d);
+      setAnimSeq((s) => s + 1);
       try {
         localStorage.setItem(STORAGE_KEY, u);
       } catch {
@@ -204,7 +257,7 @@ export function App() {
     return { sum, slices };
   }, [data]);
 
-  const showSkeleton = loading && !data;
+  const showSkeleton = loading;
 
   return (
     <div className="app">
@@ -254,7 +307,7 @@ export function App() {
       )}
 
       {showSkeleton && (
-        <main className="main" aria-busy="true">
+        <main className="main skeleton-enter" aria-busy="true" key={`sk-${fetchSeq}`}>
           <section className="grid-top">
             <article className="card card-total">
               <h2 className="card-label">Solved</h2>
@@ -292,11 +345,13 @@ export function App() {
       )}
 
       {data && !showSkeleton && (
-        <main className="main">
+        <main className="main content-enter" key={`ct-${animSeq}`}>
           <section className="grid-top">
             <article className="card card-total">
               <h2 className="card-label">Solved</h2>
-              <p className="total-value">{data.stats.total}</p>
+              <p className="total-value">
+                <AnimatedNumber value={data.stats.total} triggerKey={animSeq} />
+              </p>
               <p className="card-hint">unique problems accepted</p>
             </article>
 
@@ -310,7 +365,12 @@ export function App() {
             <article className="card card-breakdown">
               <h2 className="card-label">By difficulty</h2>
               {pieSegments && (
-                <DifficultyPie sum={pieSegments.sum} slices={pieSegments.slices} />
+                <DifficultyPie
+                  key={`pie-${animSeq}`}
+                  sum={pieSegments.sum}
+                  slices={pieSegments.slices}
+                  triggerKey={animSeq}
+                />
               )}
             </article>
           </section>
