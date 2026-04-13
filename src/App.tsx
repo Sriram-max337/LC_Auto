@@ -204,8 +204,12 @@ export function App() {
     return { sum, slices };
   }, [data]);
 
+  const showSkeleton = loading && !data;
+
   return (
     <div className="app">
+      {loading && <div className="top-loading-bar" aria-hidden />}
+
       <header className="header">
         <div className="brand">
           <span className="brand-mark" aria-hidden />
@@ -239,6 +243,7 @@ export function App() {
           >
             Refresh
           </button>
+          {loading && <span className="fetching-indicator">Fetching data…</span>}
         </form>
       </header>
 
@@ -248,9 +253,45 @@ export function App() {
         </div>
       )}
 
-      {loading && <div className="banner banner-loading">Pulling from LeetCode…</div>}
+      {showSkeleton && (
+        <main className="main" aria-busy="true">
+          <section className="grid-top">
+            <article className="card card-total">
+              <h2 className="card-label">Solved</h2>
+              <div className="skeleton sk-value" />
+              <div className="skeleton sk-line" />
+            </article>
 
-      {data && !loading && (
+            <article className="card card-streak">
+              <h2 className="card-label">Streak</h2>
+              <div className="skeleton sk-value sk-value-sm" />
+            </article>
+
+            <article className="card card-breakdown">
+              <h2 className="card-label">By difficulty</h2>
+              <div className="skeleton sk-pie" />
+              <div className="skeleton sk-line" />
+              <div className="skeleton sk-line sk-line-short" />
+              <div className="skeleton sk-line sk-line-shorter" />
+            </article>
+          </section>
+
+          <section className="card card-activity">
+            <div className="activity-head">
+              <h2 className="card-label">Recent activity</h2>
+              <span className="user-pill skeleton sk-pill" aria-hidden />
+            </div>
+            <div className="activity-skeleton">
+              <div className="skeleton sk-row" />
+              <div className="skeleton sk-row" />
+              <div className="skeleton sk-row" />
+              <div className="skeleton sk-row" />
+            </div>
+          </section>
+        </main>
+      )}
+
+      {data && !showSkeleton && (
         <main className="main">
           <section className="grid-top">
             <article className="card card-total">
